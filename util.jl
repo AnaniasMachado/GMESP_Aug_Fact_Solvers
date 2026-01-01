@@ -1,22 +1,24 @@
 using LinearAlgebra
 
-"""
-    aug_fact_objective(x, At, t, t_a)
+# ============================================================
+# A(t_a) factorization
+# ============================================================
+function compute_At(C::Matrix{Float64}, t_a::Float64)
+    F = cholesky(Symmetric(C - t_a * I))
+    return F.U
+end
 
-Compute the Aug-Fact objective value
+# ============================================================
+# M_{t_a}(x) = A(t_a) * Diagonal(x) * A(t_a)'
+# ============================================================
+function M_ta(x::Vector{Float64}, At::AbstractMatrix{Float64})
+    return At * Diagonal(x) * At'
+end
 
-    hatΦ_t(M_{t_a}(x); t_a) = sum_{i=1}^t log(λ_i(M_{t_a}(x)) + t_a)
-
-Inputs:
-- x   :: Vector{Float64}   (solution in [0,1]^n)
-- At  :: Matrix{Float64}   (A(t_a), upper-triangular Cholesky factor)
-- t   :: Int               (number of eigenvalues)
-- t_a :: Float64           (augmentation parameter)
-
-Output:
-- objective value (Float64)
-"""
-function aug_fact_objective(
+# ============================================================
+# GAug-Fact Objective Function
+# ============================================================
+function gaug_fact_objective(
     x::Vector{Float64},
     At::AbstractMatrix{Float64},
     t::Int,

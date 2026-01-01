@@ -1,11 +1,5 @@
 using LinearAlgebra
 
-"""
-    spectral_subgradient_hatPhi_paper(M, t)
-
-Paper-faithful subgradient of the concave envelope hatΦ_t at M.
-Handles eigenvalue ties exactly as in Proposition 2 / Remark 2.
-"""
 function spectral_subgradient_hatPhi_paper(
     M::Matrix{Float64},
     t::Int;
@@ -53,12 +47,7 @@ function spectral_subgradient_hatPhi_paper(
     return Y
 end
 
-"""
-    fw_aug_fact_paper(C, t_a, s, t)
-
-Frank–Wolfe for Aug-Fact using the paper's exact subgradient.
-"""
-function fw_aug_fact_paper(
+function fw_gaug_fact_paper(
     C::Matrix{Float64},
     t_a::Float64,
     s::Int,
@@ -70,6 +59,7 @@ function fw_aug_fact_paper(
 
     # Initial feasible point
     x = fill(s / n, n)
+    gap = 1e6
 
     k = 0
     while true
@@ -92,8 +82,7 @@ function fw_aug_fact_paper(
         # --- FW gap ---
         gap = dot(grad, v .- x)
         if gap ≤ tol
-            println("FW converged at iteration $k, gap = $gap")
-            return x
+            return x, gap, k
         end
 
         # --- Step size (standard) ---
@@ -102,116 +91,6 @@ function fw_aug_fact_paper(
         # --- Update ---
         x .= (1 - γ) .* x .+ γ .* v
     end
-
-    return x
-end
-
-# ============================================================
-# Away-step Frank–Wolfe for Aug-Fact
-# ============================================================
-function afw_aug_fact_paper(
-    C::Matrix{Float64},
-    t_a::Float64,
-    s::Int,
-    t::Int;
-    tol::Float64 = 1e-6
-)
-    n = size(C, 1)
-    At = cholesky(Symmetric(C - t_a * I)).U
-
-    # Initial vertex (uniform convex combination not needed for AFW)
-    x = fill(s / n, n)
-
-    # Active set: vertices and weights
-    active_vertices = Vector{Vector{Float64}}()
-    weights = Float64[]
-
-    push!(active_vertices, copy(x))
-    push!(weights, 1.0)
-
-    k = 0
-    while true
-        k += 1
-
-        # --- Build M(x) ---
-        M = At * Diagonal(x) * At'
-
-        # --- Paper subgradient ---
-        Y = spectral_subgradient_hatPhi_paper(M, t)
-
-        # --- Gradient ---
-        grad = diag(At' * Y * At)
-
-        # --- FW vertex ---
-        idx = sortperm(grad, rev=true)
-        v_fw = zeros(n)
-        v_fw[idx[1:s]] .= 1.0
-
-        # --- Away vertex ---
-        vals = [dot(grad, v) for v in active_vertices]
-        ia = argmin(vals)
-        v_away = active_vertices[ia]
-
-        # --- Directions ---
-        d_fw = v_fw .- x
-        d_away = x .- v_away
-
-        gap_fw = dot(grad, d_fw)
-        gap_away = dot(grad, d_away)
-
-        # --- Stopping ---
-        if gap_fw ≤ tol
-            println("AFW converged at iteration $k, gap = $gap_fw")
-            return x
-        end
-
-        # --- Choose direction ---
-        if gap_fw ≥ gap_away
-            d = d_fw
-            γmax = 1.0
-            step_type = :FW
-        else
-            d = d_away
-            γmax = weights[ia] / (1 - weights[ia] + eps())
-            step_type = :Away
-        end
-
-        # --- Step size (standard AFW choice) ---
-        γ = min(γmax, 2.0 / (k + 2))
-
-        # --- Update x ---
-        x .= x .+ γ .* d
-
-        # --- Update active set ---
-        if step_type == :FW
-            found = false
-            for (i, v) in enumerate(active_vertices)
-                if norm(v - v_fw) ≤ 1e-12
-                    weights[i] += γ
-                    found = true
-                    break
-                end
-            end
-            if !found
-                push!(active_vertices, v_fw)
-                push!(weights, γ)
-            end
-            weights .*= (1 - γ)
-        else
-            weights[ia] -= γ
-            weights .*= (1 + γ)
-        end
-
-        # --- Clean up tiny weights ---
-        keep = [i for i in eachindex(weights) if weights[i] > 1e-12]
-        active_vertices = active_vertices[keep]
-        weights = weights[keep]
-
-        # Normalize weights
-        weights ./= sum(weights)
-    end
-
-    return x
 end
 
 function fw_exact_line_search(
@@ -247,7 +126,7 @@ function fw_exact_line_search(
     return 0.5 * (γlo + γhi)
 end
 
-function fw_aug_fact_exact_ls(
+function fw_gaug_fact_exact_ls(
     C::Matrix{Float64},
     t_a::Float64,
     s::Int,
@@ -258,6 +137,7 @@ function fw_aug_fact_exact_ls(
     At = cholesky(Symmetric(C - t_a * I)).U
 
     x = fill(s / n, n)
+    gap = 1e6
 
     k = 0
     while true
@@ -276,111 +156,10 @@ function fw_aug_fact_exact_ls(
         gap = dot(grad, d)
 
         if gap ≤ tol
-            println("FW (exact LS) converged at iter $k, gap = $gap")
-            return x
+            return x, gap, k
         end
 
         γ = fw_exact_line_search(x, d, At, t; γmax = 1.0)
         x .= x .+ γ .* d
     end
-
-    return x
-end
-
-function afw_aug_fact_exact_ls(
-    C::Matrix{Float64},
-    t_a::Float64,
-    s::Int,
-    t::Int;
-    tol::Float64 = 1e-6
-)
-    n = size(C, 1)
-    At = cholesky(Symmetric(C - t_a * I)).U
-
-    x = fill(s / n, n)
-
-    active_vertices = [copy(x)]
-    weights = [1.0]
-
-    k = 0
-    while true
-        k += 1
-
-        # --- Safety guard ---
-        if isempty(active_vertices)
-            active_vertices = [copy(x)]
-            weights = [1.0]
-        end
-
-        # --- Gradient ---
-        M = At * Diagonal(x) * At'
-        Y = spectral_subgradient_hatPhi_paper(M, t)
-        grad = diag(At' * Y * At)
-
-        # --- FW vertex ---
-        idx = sortperm(grad, rev=true)
-        v_fw = zeros(n)
-        v_fw[idx[1:s]] .= 1.0
-
-        d_fw = v_fw .- x
-        gap_fw = dot(grad, d_fw)
-
-        if gap_fw ≤ tol
-            println("AFW converged at iter $k, gap = $gap_fw")
-            return x
-        end
-
-        # --- Away vertex ---
-        vals = [dot(grad, v) for v in active_vertices]
-        ia = argmin(vals)
-        v_away = active_vertices[ia]
-
-        d_away = x .- v_away
-        gap_away = dot(grad, d_away)
-
-        # --- Direction selection ---
-        if gap_fw ≥ gap_away
-            d = d_fw
-            γmax = 1.0
-            step = :FW
-        else
-            d = d_away
-            γmax = weights[ia] / (1 - weights[ia] + eps())
-            step = :Away
-        end
-
-        # --- Exact line search ---
-        γ = fw_exact_line_search(x, d, At, t; γmax = γmax)
-
-        # --- Update x ---
-        x .= x .+ γ .* d
-
-        # --- Active set update ---
-        if step == :FW
-            found = false
-            for i in eachindex(active_vertices)
-                if norm(active_vertices[i] - v_fw) ≤ 1e-12
-                    weights[i] += γ
-                    found = true
-                    break
-                end
-            end
-            if !found
-                push!(active_vertices, v_fw)
-                push!(weights, γ)
-            end
-            weights .*= (1 - γ)
-        else
-            weights[ia] -= γ
-            weights .*= (1 + γ)
-        end
-
-        # --- Prune ---
-        keep = findall(w -> w > 1e-12, weights)
-        active_vertices = active_vertices[keep]
-        weights = weights[keep]
-        weights ./= sum(weights)
-    end
-
-    return x
 end
