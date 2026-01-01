@@ -92,6 +92,8 @@ for t in t_vals
         fwls_k = [fwls_k],
         fwls_runtime = [fwls_runtime],
     )
+
+    append!(df, result)
 end
 
 CSV.write(results_filepath, df)
