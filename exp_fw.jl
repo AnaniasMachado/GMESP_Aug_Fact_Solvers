@@ -70,6 +70,7 @@ for t in t_vals
         )
     end
     fwls_obj = gaug_fact_objective(fwls_x, At, t, t_a)
+    spectral_bound = gaug_fact_objective(fwls_x, At, t, t_a)
 
     println("--------------------")
     println("Frank-Wolfe Exact LS stats:")
@@ -78,6 +79,7 @@ for t in t_vals
     println("gap: $fwls_gap")
     println("k: $fwls_k")
     println("rp: $(abs(sum(fwls_x) - s))")
+    println("spectral bound: $spectral_bound")
 
     result = DataFrame(
         n = [n],
@@ -91,6 +93,7 @@ for t in t_vals
         fwls_gap = [fwls_gap],
         fwls_k = [fwls_k],
         fwls_runtime = [fwls_runtime],
+        spectral_bound = [spectral_bound],
     )
 
     append!(df, result)
