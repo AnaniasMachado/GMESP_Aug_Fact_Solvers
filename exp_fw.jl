@@ -1,4 +1,5 @@
 using Random
+using MAT
 using CSV
 using DataFrames
 
@@ -8,16 +9,16 @@ include("util.jl")
 # -------------------------
 # Problem data
 # -------------------------
-n = 100
+n = 63
 s = 50
 t_vals = [5*i for i in 1:10]
 
-Random.seed!(2)
-C = randn(n, n)
-C = C' * C + I
+matfile = matopen("data63.mat")
+C = read(matfile, "A")
+close(matfile)
 
 # Choose t_a < λ_min(C)
-t_a = 0.9 * minimum(eigvals(Symmetric(C)))
+t_a = 1.0 * minimum(eigvals(Symmetric(C)))
 
 # -------------------------
 # Compute A(t_a)
@@ -70,7 +71,7 @@ for t in t_vals
         )
     end
     fwls_obj = gaug_fact_objective(fwls_x, At, t, t_a)
-    spectral_bound = gaug_fact_objective(fwls_x, At, t, t_a)
+    spectral_bound_val = spectral_bound(fwls_x, At, t, t_a)
 
     println("--------------------")
     println("Frank-Wolfe Exact LS stats:")
@@ -79,7 +80,7 @@ for t in t_vals
     println("gap: $fwls_gap")
     println("k: $fwls_k")
     println("rp: $(abs(sum(fwls_x) - s))")
-    println("spectral bound: $spectral_bound")
+    println("spectral bound: $spectral_bound_val")
 
     result = DataFrame(
         n = [n],
@@ -93,7 +94,7 @@ for t in t_vals
         fwls_gap = [fwls_gap],
         fwls_k = [fwls_k],
         fwls_runtime = [fwls_runtime],
-        spectral_bound = [spectral_bound],
+        spectral_bound_val = [spectral_bound_val],
     )
 
     append!(df, result)

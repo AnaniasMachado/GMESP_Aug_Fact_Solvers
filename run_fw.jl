@@ -1,4 +1,5 @@
 using Random
+using MAT
 
 include("fw.jl")
 include("util.jl")
@@ -6,16 +7,16 @@ include("util.jl")
 # -------------------------
 # Problem data
 # -------------------------
-n = 100
+n = 63
 s = 10
 t = 5
 
-Random.seed!(2)
-C = randn(n, n)
-C = C' * C + I
+matfile = matopen("data63.mat")
+C = read(matfile, "A")
+close(matfile)
 
 # Choose t_a < λ_min(C)
-t_a = 0.9 * minimum(eigvals(Symmetric(C)))
+t_a = 1.0 * minimum(eigvals(Symmetric(C)))
 
 # -------------------------
 # Compute A(t_a)
