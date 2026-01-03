@@ -33,7 +33,7 @@ tol = 1e-3
 # Run Frank-Wolfe
 # -------------------------
 runtime = @elapsed begin
-    x, gap, k = fw_gaug_fact_paper(
+    x, gap, k = fw_gaug_fact(
         C, t_a, s, t;
         tol = tol
     )
@@ -58,6 +58,7 @@ runtime = @elapsed begin
     )
 end
 obj = gaug_fact_objective(x, At, t, t_a)
+spectral_bound_val = spectral_bound(C, t)
 
 println("--------------------")
 println("Frank-Wolfe Exact LS stats:")
@@ -66,18 +67,4 @@ println("obj: $obj")
 println("gap: $gap")
 println("k: $k")
 println("rp: $(abs(sum(x) - s))")
-
-# -------------------------
-# GAug-Fact Closed Form Solution
-# -------------------------
-# x_star, idx, g = closed_form_gaug_fact(C, t_a, s, t)
-# x_star, scores, Sstar = gaug_fact_closed_form(C, t_a, s, t)
-x_star, w = gaug_fact_closed_form(C, t_a, s, t)
-obj_star = gaug_fact_objective(x_star, At, t, t_a)
-sol_res = norm(x_star - x)
-obj_res = obj_star - obj
-println("--------------------")
-println("obj star: $obj_star")
-println("sol star rp: $(abs(sum(x_star) - s))")
-println("sol res: $sol_res")
-println("obj res: $obj_res")
+println("spectral bound: $spectral_bound_val")

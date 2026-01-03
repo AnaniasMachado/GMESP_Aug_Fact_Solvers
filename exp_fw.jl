@@ -10,8 +10,8 @@ include("util.jl")
 # Problem data
 # -------------------------
 n = 63
-s = 50
-t_vals = [5*i for i in 1:10]
+s = 40
+t_vals = [i for i in 1:s]
 
 matfile = matopen("data63.mat")
 C = read(matfile, "A")
@@ -36,7 +36,7 @@ tol = 1e-3
 # -------------------------
 
 df = DataFrame()
-results_filepath = "results.csv"
+results_filepath = "results_s$s.csv"
 
 for t in t_vals
     println("--------------------")
@@ -46,7 +46,7 @@ for t in t_vals
     # Run Frank-Wolfe
     # -------------------------
     fw_runtime = @elapsed begin
-        fw_x, fw_gap, fw_k = fw_gaug_fact_paper(
+        fw_x, fw_gap, fw_k = fw_gaug_fact(
             C, t_a, s, t;
             tol = tol
         )
@@ -71,7 +71,7 @@ for t in t_vals
         )
     end
     fwls_obj = gaug_fact_objective(fwls_x, At, t, t_a)
-    spectral_bound_val = spectral_bound(fwls_x, At, t, t_a)
+    spectral_bound_val = spectral_bound(C, t)
 
     println("--------------------")
     println("Frank-Wolfe Exact LS stats:")

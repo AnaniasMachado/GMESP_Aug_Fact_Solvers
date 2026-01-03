@@ -1,53 +1,55 @@
 using LinearAlgebra
 
-function spectral_subgradient_hatPhi_paper(
-    M::Matrix{Float64},
-    t::Int;
-    tol = 1e-10
-)
+function spectral_subgradient_hatPhi(M::Matrix{Float64}, t::Int)
+    # --- Eigen-decomposition ---
     eig = eigen(Symmetric(M))
-    U = eig.vectors
     λ = eig.values
+    U = eig.vectors
     n = length(λ)
 
-    # Sort descending
+    # --- Sort eigenvalues descending ---
     perm = sortperm(λ, rev=true)
     λs = λ[perm]
     Us = U[:, perm]
 
-    λt = λs[t]
-
-    # Identify k and ℓ
-    k = findlast(i -> λs[i] > λt + tol, 1:n)
-    k = isnothing(k) ? 0 : k
-
-    ℓ = findfirst(i -> λs[i] < λt - tol, 1:n)
-    ℓ = isnothing(ℓ) ? n+1 : ℓ
-
-    # Construct Y
-    Y = zeros(size(M))
-
-    # Full ones
-    for i in 1:k
-        ui = view(Us, :, i)
-        Y .+= ui * ui'
+    # --- Determine k ---
+    k = 0
+    for i in 0:(t-1)
+        avg = sum(λs[i+1:end]) / (t - i)
+        if i == 0
+            if Inf > avg && avg >= λs[i+1]
+                k = i
+                break
+            end
+        else
+            if λs[i] > avg && avg >= λs[i+1]
+                k = i
+                break
+            end
+        end
     end
 
-    # Fractional part on tied eigenspace
-    if k+1 ≤ ℓ-1
+    # --- Construct subgradient matrix ---
+    Y = zeros(n, n)
+
+    # Top k eigenvectors
+    if k > 0
+        Y .+= Us[:, 1:k] * Diagonal(1 ./ λs[1:k]) * Us[:, 1:k]'
+    end
+
+    # Fractional weight for remaining eigenvectors
+    if k < n
         r = t - k
-        m = ℓ - k - 1
-        θ = r / m
-        for i in k+1:ℓ-1
-            ui = view(Us, :, i)
-            Y .+= θ * (ui * ui')
-        end
+        sum_tail = sum(λs[k+1:end])
+        weight = r / sum_tail
+        U_tail = Us[:, k+1:end]
+        Y .+= U_tail * (weight * I(size(U_tail, 2))) * U_tail'
     end
 
     return Y
 end
 
-function fw_gaug_fact_paper(
+function fw_gaug_fact(
     C::Matrix{Float64},
     t_a::Float64,
     s::Int,
@@ -69,7 +71,7 @@ function fw_gaug_fact_paper(
         M = At * Diagonal(x) * At'
 
         # --- Paper subgradient ---
-        Y = spectral_subgradient_hatPhi_paper(M, t)
+        Y = spectral_subgradient_hatPhi(M, t)
 
         # --- Gradient ---
         grad = diag(At' * Y * At)
@@ -99,8 +101,8 @@ function fw_exact_line_search(
     At::AbstractMatrix{Float64},
     t::Int;
     γmax::Float64,
-    tol::Float64 = 1e-8,
-    maxiter::Int = 50
+    tol::Float64 = 1e-5,
+    maxiter::Int = 20
 )
     γlo, γhi = 0.0, γmax
 
@@ -109,7 +111,7 @@ function fw_exact_line_search(
 
         xγ = x .+ γ .* d
         Mγ = At * Diagonal(xγ) * At'
-        Yγ = spectral_subgradient_hatPhi_paper(Mγ, t)
+        Yγ = spectral_subgradient_hatPhi(Mγ, t)
 
         gradγ = diag(At' * Yγ * At)
         deriv = dot(gradγ, d)
@@ -144,7 +146,7 @@ function fw_gaug_fact_exact_ls(
         k += 1
 
         M = At * Diagonal(x) * At'
-        Y = spectral_subgradient_hatPhi_paper(M, t)
+        Y = spectral_subgradient_hatPhi(M, t)
         grad = diag(At' * Y * At)
 
         # FW vertex
