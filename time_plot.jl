@@ -2,16 +2,24 @@ using CSV
 using DataFrames
 using Plots
 
-df = CSV.read("results.csv", DataFrame)
+s = 40
+
+df = CSV.read("results_s$s.csv", DataFrame)
 
 scatter(
-    df.t, df.time,
+    df.t, df.fw_runtime;
+    label = "FW",
+    yscale = :log10,
     xlabel = "t",
-    ylabel = "time (s)",
-    legend = false,
-    grid = :both,          # :x, :y, :both, or true
-    gridalpha = 0.3,       # transparency
-    gridlinewidth = 0.8,
+    ylabel = "time (s)"
 )
 
-savefig("scatter.png")
+# scatter!(df.t, df.fwls_runtime; label = "FW-LS")
+
+scatter!(df.t, df.asfw_runtime; label = "ASFW")
+# scatter!(df.t, df.asfwls_runtime; label = "ASFW-LS")
+
+scatter!(df.t, df.pwfw_runtime; label = "PWFW")
+# scatter!(df.t, df.pwfwls_runtime; label = "PWFW-LS")
+
+savefig("scatter_s$s.png")
