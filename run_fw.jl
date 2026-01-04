@@ -49,7 +49,8 @@ x_ref[indexes] .= 1.0
 runtime = @elapsed begin
     x, gap, k = fw_gaug_fact(
         C, t_a, s, t;
-        tol = tol
+        tol = tol,
+        use_standard_stepsize = true,
     )
 end
 obj = gaug_fact_objective(x, At, t, t_a)
@@ -66,9 +67,52 @@ println("rp: $(abs(sum(x) - s))")
 # Run Frank-Wolfe Exact LS
 # -------------------------
 runtime = @elapsed begin
-    x, gap, k = fw_gaug_fact_exact_ls(
+    x, gap, k = fw_gaug_fact(
         C, t_a, s, t;
-        tol = tol
+        tol = tol,
+        use_standard_stepsize = false,
+    )
+end
+obj = gaug_fact_objective(x, At, t, t_a)
+spectral_bound_val = spectral_bound(C, t)
+
+println("--------------------")
+println("Frank-Wolfe Exact LS stats:")
+println("time: $runtime")
+println("obj: $obj")
+println("gap: $gap")
+println("k: $k")
+println("rp: $(abs(sum(x) - s))")
+println("spectral bound: $spectral_bound_val")
+
+# -------------------------
+# Run Frank-Wolfe
+# -------------------------
+runtime = @elapsed begin
+    x, gap, k = fw_gaug_fact_eig(
+        C, t_a, s, t;
+        tol = tol,
+        line_search = false,
+    )
+end
+obj = gaug_fact_objective(x, At, t, t_a)
+
+println("--------------------")
+println("Frank-Wolfe stats:")
+println("time: $runtime")
+println("obj: $obj")
+println("gap: $gap")
+println("k: $k")
+println("rp: $(abs(sum(x) - s))")
+
+# -------------------------
+# Run Frank-Wolfe Exact LS
+# -------------------------
+runtime = @elapsed begin
+    x, gap, k = fw_gaug_fact_eig(
+        C, t_a, s, t;
+        tol = tol,
+        line_search = true,
     )
 end
 obj = gaug_fact_objective(x, At, t, t_a)
@@ -90,7 +134,7 @@ runtime = @elapsed begin
     x, gap, k = afw_gaug_fact(
         C, t_a, s, t;
         tol = tol,
-        use_standard_stepsize = true,
+        line_search = false,
     )
 end
 obj = gaug_fact_objective(x, At, t, t_a)

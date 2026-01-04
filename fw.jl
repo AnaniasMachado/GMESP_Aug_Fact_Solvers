@@ -52,52 +52,6 @@ function spectral_subgradient_hatPhi(M::Matrix{Float64}, t::Int, t_a::Float64)
     return Y
 end
 
-function fw_gaug_fact(
-    C::Matrix{Float64},
-    t_a::Float64,
-    s::Int,
-    t::Int;
-    tol::Float64 = 1e-6
-)
-    n = size(C, 1)
-    At = cholesky(Symmetric(C - t_a * I)).U
-
-    # Initial feasible point
-    x = fill(s / n, n)
-    gap = 1e6
-
-    k = 0
-    while true
-        k += 1
-
-        # --- Build M(x) ---
-        M = At * Diagonal(x) * At'
-
-        # --- Paper subgradient ---
-        Y = spectral_subgradient_hatPhi(M, t, t_a)
-
-        # --- Gradient ---
-        grad = diag(At' * Y * At)
-
-        # --- Linear minimization oracle ---
-        idx = sortperm(grad, rev=true)
-        v = zeros(n)
-        v[idx[1:s]] .= 1.0
-
-        # --- FW gap ---
-        gap = dot(grad, v .- x)
-        if gap ≤ tol
-            return x, gap, k
-        end
-
-        # --- Step size (standard) ---
-        γ = 2.0 / (k + 2)
-
-        # --- Update ---
-        x .= (1 - γ) .* x .+ γ .* v
-    end
-end
-
 function fw_exact_line_search(
     x::Vector{Float64},
     d::Vector{Float64},
@@ -132,42 +86,56 @@ function fw_exact_line_search(
     return 0.5 * (γlo + γhi)
 end
 
-function fw_gaug_fact_exact_ls(
+function fw_gaug_fact(
     C::Matrix{Float64},
     t_a::Float64,
     s::Int,
     t::Int;
-    tol::Float64 = 1e-6
+    tol::Float64 = 1e-6,
+    line_search::Bool = false,
 )
     n = size(C, 1)
     At = cholesky(Symmetric(C - t_a * I)).U
-    L = opnorm(At)^2 / t_a
 
+    # Initial feasible point
     x = fill(s / n, n)
     gap = 1e6
+    γ = 0.0
 
     k = 0
     while true
         k += 1
 
+        # --- Build M(x) ---
         M = At * Diagonal(x) * At'
+
+        # --- Paper subgradient ---
         Y = spectral_subgradient_hatPhi(M, t, t_a)
+
+        # --- Gradient ---
         grad = diag(At' * Y * At)
 
-        # FW vertex
+        # --- Linear minimization oracle ---
         idx = sortperm(grad, rev=true)
         v = zeros(n)
         v[idx[1:s]] .= 1.0
 
-        d = v .- x
-        gap = dot(grad, d)
-
+        # --- FW gap ---
+        gap = dot(grad, v .- x)
         if gap ≤ tol
             return x, gap, k
         end
 
-        γ = fw_exact_line_search(x, d, At, t, t_a; γmax = 1.0)
-        x .= x .+ γ .* d
+        # --- Step size (standard) ---
+        if !line_search
+            γ = 2.0 / (k + 2)
+        else
+            d = v .- x
+            γ = fw_exact_line_search(x, d, At, t, t_a; γmax = 1.0)
+        end
+
+        # --- Update ---
+        x .= (1 - γ) .* x .+ γ .* v
     end
 end
 
@@ -177,7 +145,7 @@ function afw_gaug_fact(
     s::Int,
     t::Int;
     tol::Float64 = 1e-6,
-    use_standard_stepsize::Bool = false,
+    line_search::Bool = false,
 )
     n = size(C, 1)
     At = cholesky(Symmetric(C - t_a * I)).U
@@ -250,7 +218,7 @@ function afw_gaug_fact(
         # ============================================================
         # Step size
         # ============================================================
-        if use_standard_stepsize
+        if !line_search
             γ = min(2.0 / (k + 2), γmax)
         else
             γ = fw_exact_line_search(x, d, At, t, t_a; γmax = γmax)
@@ -308,7 +276,7 @@ function pairwise_fw_gaug_fact(
     s::Int,
     t::Int;
     tol::Float64 = 1e-6,
-    use_standard_stepsize::Bool = false,
+    line_search::Bool = false,
 )
     n = size(C, 1)
     At = cholesky(Symmetric(C - t_a * I)).U
@@ -371,7 +339,7 @@ function pairwise_fw_gaug_fact(
         # --------------------------------------------------------
         # Step size
         # --------------------------------------------------------
-        if use_standard_stepsize
+        if !line_search
             γ = min(2.0 / (k + 2), γmax)
         else
             γ = fw_exact_line_search(x, d, At, t, t_a; γmax = γmax)

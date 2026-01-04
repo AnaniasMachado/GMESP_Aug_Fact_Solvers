@@ -41,10 +41,10 @@ t_warm = t_vals[1]
 
 fw_gaug_fact(C, t_a, s, t_warm; tol=tol)
 fw_gaug_fact_exact_ls(C, t_a, s, t_warm; tol=tol)
-afw_gaug_fact(C, t_a, s, t_warm; tol=tol, use_standard_stepsize=true)
-afw_gaug_fact(C, t_a, s, t_warm; tol=tol, use_standard_stepsize=false)
-pairwise_fw_gaug_fact(C, t_a, s, t_warm; tol=tol, use_standard_stepsize=true)
-pairwise_fw_gaug_fact(C, t_a, s, t_warm; tol=tol, use_standard_stepsize=false)
+afw_gaug_fact(C, t_a, s, t_warm; tol=tol, line_search=false)
+afw_gaug_fact(C, t_a, s, t_warm; tol=tol, line_search=true)
+pairwise_fw_gaug_fact(C, t_a, s, t_warm; tol=tol, line_search=false)
+pairwise_fw_gaug_fact(C, t_a, s, t_warm; tol=tol, line_search=true)
 
 # also warm up objective / bounds
 x_dummy = fill(s / n, n)
@@ -69,7 +69,8 @@ for t in t_vals
     fw_runtime = @elapsed begin
         fw_x, fw_gap, fw_k = fw_gaug_fact(
             C, t_a, s, t;
-            tol = tol
+            tol = tol,
+            line_search = false,
         )
     end
     fw_obj = gaug_fact_objective(fw_x, At, t, t_a)
@@ -86,9 +87,10 @@ for t in t_vals
     # Run Frank-Wolfe Exact LS
     # -------------------------
     fwls_runtime = @elapsed begin
-        fwls_x, fwls_gap, fwls_k = fw_gaug_fact_exact_ls(
+        fwls_x, fwls_gap, fwls_k = fw_gaug_fact(
             C, t_a, s, t;
-            tol = tol
+            tol = tol,
+            line_search = true,
         )
     end
     fwls_obj = gaug_fact_objective(fwls_x, At, t, t_a)
@@ -110,7 +112,7 @@ for t in t_vals
         asfw_x, asfw_gap, asfw_k = afw_gaug_fact(
             C, t_a, s, t;
             tol = tol,
-            use_standard_stepsize = true,
+            line_search = false,
         )
     end
     asfw_obj = gaug_fact_objective(asfw_x, At, t, t_a)
@@ -130,7 +132,7 @@ for t in t_vals
         asfwls_x, asfwls_gap, asfwls_k = afw_gaug_fact(
             C, t_a, s, t;
             tol = tol,
-            use_standard_stepsize = false,
+            line_search = true,
         )
     end
     asfwls_obj = gaug_fact_objective(asfwls_x, At, t, t_a)
@@ -151,7 +153,7 @@ for t in t_vals
         pwfw_x, pwfw_gap, pwfw_k = pairwise_fw_gaug_fact(
             C, t_a, s, t;
             tol = tol,
-            use_standard_stepsize = true,
+            line_search = false,
         )
     end
     pwfw_obj = gaug_fact_objective(pwfw_x, At, t, t_a)
@@ -171,7 +173,7 @@ for t in t_vals
         pwfwls_x, pwfwls_gap, pwfwls_k = pairwise_fw_gaug_fact(
             C, t_a, s, t;
             tol = tol,
-            use_standard_stepsize = false,
+            line_search = true,
         )
     end
     pwfwls_obj = gaug_fact_objective(pwfwls_x, At, t, t_a)
