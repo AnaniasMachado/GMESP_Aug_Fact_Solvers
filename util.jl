@@ -16,9 +16,9 @@ function M_ta(x::Vector{Float64}, At::AbstractMatrix{Float64})
 end
 
 # ============================================================
-# GAug-Fact Objective Function
+# Phi Function
 # ============================================================
-function gaug_fact_objective(
+function phi(
     x::Vector{Float64},
     At::AbstractMatrix{Float64},
     t::Int,
@@ -31,6 +31,57 @@ function gaug_fact_objective(
     λ, _ = eigs(Symmetric(M), nev=t, which=:LM)
 
     return sum(log.(λ .+ t_a))
+end
+
+# ============================================================
+# GAug-Fact Objective Function
+# ============================================================
+function gaug_fact_objective(
+    x::Vector{Float64},
+    At::AbstractMatrix{Float64},
+    t::Int,
+    t_a::Float64
+)
+    # Build M_{t_a}(x)
+    M = At * Diagonal(x) * At'
+
+    # Full eigen-decomposition (needed for psi_t)
+    λ = eigvals(Symmetric(M))
+
+    # Sort eigenvalues in descending order
+    λs = sort(λ, rev=true)
+
+    # Form y = λ + t_a * I_t
+    y = copy(λs)
+    y[1:t] .+= t_a
+
+    # Determine k according to Definition 3
+    k = 0
+    for i in 0:(t-1)
+        avg = sum(y[i+1:end]) / (t - i)
+        if i == 0
+            if avg >= y[1]
+                k = 0
+                break
+            end
+        else
+            if y[i] > avg && avg >= y[i+1]
+                k = i
+                break
+            end
+        end
+    end
+
+    # Compute psi_t(y)
+    if k > 0
+        val = sum(log.(y[1:k]))
+    else
+        val = 0.0
+    end
+
+    val += (t - k) * log(sum(y[k+1:end]) / (t - k))
+
+    return val
 end
 
 # ============================================================
