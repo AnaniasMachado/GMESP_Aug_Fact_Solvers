@@ -54,6 +54,7 @@ function fw_exact_line_search_eig(
     d::Vector{Float64},
     λ::Vector{Float64},
     U::AbstractMatrix{Float64},
+    At::AbstractMatrix{Float64},
     t::Int,
     t_a::Float64;
     γmax::Float64,
@@ -95,6 +96,7 @@ function fw_gaug_fact_eig(
     eig = eigen(Symmetric(C - t_a * I))
     λ = eig.values
     U = eig.vectors
+    At = sqrt.(λ) .* U'
     n = length(λ)
 
     # Initial feasible point
@@ -128,7 +130,7 @@ function fw_gaug_fact_eig(
             γ = 2.0 / (k + 2)
         else
             d = v .- x
-            γ = fw_exact_line_search_eig(x, d, λ, U, t, t_a; γmax = 1.0)
+            γ = fw_exact_line_search_eig(x, d, λ, U, At, t, t_a; γmax = 1.0)
         end
 
         # --- Update ---
