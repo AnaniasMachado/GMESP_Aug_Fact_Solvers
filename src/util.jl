@@ -97,3 +97,23 @@ function spectral_bound(
     # Sum of log of eigenvalues
     return sum(log.(λ))
 end
+
+# ============================================================
+# Simplex Solution (closed-form for t=1)
+# ============================================================
+function simplex_sol(At::AbstractMatrix{Float64}, s::Int)
+    n = size(At, 2)
+    
+    # Compute squared norm of each column
+    col_norms = [norm(At[:, i])^2 for i in 1:n]
+    
+    # Get indices of the s largest norms
+    sorted_indices = sortperm(col_norms, rev=true)
+    S_star = sorted_indices[1:s]
+    
+    # Build solution vector
+    x = zeros(n)
+    x[S_star] .= 1.0
+    
+    return x
+end
