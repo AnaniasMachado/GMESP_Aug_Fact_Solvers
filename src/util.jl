@@ -38,10 +38,12 @@ end
 # ============================================================
 function gaug_fact_objective(
     x::Vector{Float64},
-    At::AbstractMatrix{Float64},
     t::Int,
     t_a::Float64
 )
+    # Compute A(t_a)
+    At = compute_At(C, t_a)
+
     # Build M_{t_a}(x)
     M = At * Diagonal(x) * At'
 
